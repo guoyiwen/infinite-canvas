@@ -17,6 +17,7 @@ export type ChannelModel = {
 
 export type ModelChannel = {
     id: string;
+    mohangKeyId?: number;
     name: string;
     baseUrl: string;
     apiKey: string;
@@ -75,20 +76,21 @@ export type ChannelCredentialsImportResult = {
 export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
+const MOHANG_BASE_URL = "https://mohang.cc";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 export const LOCAL_PROXY_PACKAGE = "@basketikun/canvas-proxy";
 export const DEFAULT_LOCAL_PROXY_URL = "http://127.0.0.1:23210";
 
 export const defaultConfig: AiConfig = {
     channelMode: "local",
-    baseUrl: OPENAI_BASE_URL,
+    baseUrl: MOHANG_BASE_URL,
     apiKey: "",
     apiFormat: "openai",
     channels: [
         {
             id: "default",
             name: i18n.t("config.channels.defaultName"),
-            baseUrl: OPENAI_BASE_URL,
+            baseUrl: MOHANG_BASE_URL,
             apiKey: "",
             apiFormat: "openai",
             models: [
@@ -137,6 +139,7 @@ export const defaultWebdavSyncConfig: WebdavSyncConfig = {
 
 type ConfigStore = {
     config: AiConfig;
+    hostedChannel: ModelChannel | null;
     webdav: WebdavSyncConfig;
     isConfigOpen: boolean;
     configTab: ConfigTabKey;
@@ -216,6 +219,7 @@ export const useConfigStore = create<ConfigStore>()(
     persist(
         (set, get) => ({
             config: defaultConfig,
+            hostedChannel: null,
             webdav: defaultWebdavSyncConfig,
             isConfigOpen: false,
             configTab: "channels",
@@ -247,6 +251,25 @@ export const useConfigStore = create<ConfigStore>()(
         }),
         {
             name: CONFIG_STORE_KEY,
+            version: 1,
+            migrate: (persisted, version) => {
+                const state = (persisted || {}) as Pick<ConfigStore, "config" | "webdav">;
+                if (version !== 0 || !state.config) return state;
+                const config = state.config;
+                const isOldDefaultUrl = (url?: string) => Boolean(url && normalizedBaseUrlKey(url) === OPENAI_BASE_URL);
+                return {
+                    ...state,
+                    config: {
+                        ...config,
+                        baseUrl: isOldDefaultUrl(config.baseUrl) ? MOHANG_BASE_URL : config.baseUrl,
+                        channels: config.channels?.map((channel) =>
+                            channel.id === "default" && channel.apiFormat === "openai" && isOldDefaultUrl(channel.baseUrl)
+                                ? { ...channel, baseUrl: MOHANG_BASE_URL }
+                                : channel,
+                        ),
+                    },
+                };
+            },
             partialize: (state) => ({ config: state.config, webdav: state.webdav }),
             merge: (persisted, current) => {
                 const persistedState = (persisted || {}) as Partial<ConfigStore>;
@@ -296,6 +319,35 @@ export function useEffectiveConfig() {
     return useMemo(() => ({ ...config, channelMode: "local" as const }), [config]);
 }
 
+export function applyMohangChannel(config: AiConfig, channel: ModelChannel): AiConfig {
+    const existing = config.channels.find((item) => channel.mohangKeyId !== undefined && item.mohangKeyId === channel.mohangKeyId)
+        ?? config.channels.find((item) => item.id === "default" && item.mohangKeyId === undefined);
+    const connected = { ...channel, id: existing?.id ?? channel.id };
+    const channels = existing
+        ? config.channels.map((item) => item.id === connected.id ? connected : item)
+        : [...config.channels, connected];
+    const pick = (capability: ModelCapability, current: string) => {
+        const decoded = decodeChannelModel(current);
+        if (decoded?.channelId === connected.id && connected.models.some((model) => model.name === decoded.model && model.capability === capability)) return current;
+        const model = connected.models.find((model) => model.capability === capability);
+        return model ? encodeChannelModel(connected.id, model.name) : "";
+    };
+    return {
+        ...config,
+        channelMode: "local",
+        channels,
+        models: modelOptionsFromChannels(channels),
+        baseUrl: connected.baseUrl,
+        apiKey: connected.apiKey,
+        apiFormat: connected.apiFormat,
+        model: pick("image", config.imageModel),
+        imageModel: pick("image", config.imageModel),
+        videoModel: pick("video", config.videoModel),
+        textModel: pick("text", config.textModel),
+        audioModel: pick("audio", config.audioModel),
+    };
+}
+
 /** Normalize a mixed list of raw model names or model objects into deduped ChannelModel entries. */
 export function normalizeChannelModels(models: Array<string | ChannelModel> | undefined): ChannelModel[] {
     const seen = new Set<string>();
@@ -315,6 +367,7 @@ export function createModelChannel(channel?: Partial<ModelChannel>): ModelChanne
     const apiFormat = normalizeApiFormat(channel?.apiFormat);
     return {
         id: channel?.id?.trim() || nanoid(),
+        mohangKeyId: channel?.mohangKeyId,
         name: channel?.name?.trim() || i18n.t("config.channels.newName"),
         baseUrl: channel?.baseUrl?.trim() || defaultBaseUrlForApiFormat(apiFormat),
         apiKey: channel?.apiKey || "",

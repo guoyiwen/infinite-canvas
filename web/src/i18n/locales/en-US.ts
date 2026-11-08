@@ -1,4 +1,21 @@
 export default {
+    mohang: {
+        fullscreen: "Open in new window",
+        title: "Connect to MoHang API",
+        description: "Choose your API key to configure the endpoint and available models. Usage is billed to the key's group.",
+        selectKey: "Select API key",
+        connect: "Connect",
+        refreshModels: "Refresh models",
+        connectedLabel: "Connected",
+        refresh: "Refresh keys",
+        disconnect: "Disconnect",
+        disconnected: "MoHang disconnected. Reopen the canvas and connect again.",
+        imageUnavailable: "Image generation is disabled for this group. Other capabilities depend on available models.",
+        connected: "Connected to {{name}} · {{count}} models",
+        noModels: "No models are available. Check group permissions or choose another key.",
+        createKey: "Create an API key",
+        failed: "Connection failed. Please try again.",
+    },
     meta: {
         title: "Infinite Canvas",
         description: "An infinite canvas creation tool",

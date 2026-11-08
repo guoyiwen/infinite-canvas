@@ -1,4 +1,21 @@
 export default {
+    mohang: {
+        fullscreen: "新窗口打开",
+        title: "一键连接 MoHang API",
+        description: "选择你的 API 密钥，自动配置地址和可用模型；生成按该密钥所在分组计费。",
+        selectKey: "选择 API 密钥",
+        connect: "一键连接",
+        refreshModels: "刷新模型",
+        connectedLabel: "已连接",
+        refresh: "刷新密钥",
+        disconnect: "断开连接",
+        disconnected: "MoHang 连接已断开，请重新打开画布并连接",
+        imageUnavailable: "该分组未开启生图，其他能力以可用模型为准",
+        connected: "已连接 {{name}} · {{count}} 个模型",
+        noModels: "该密钥没有可用模型，请检查分组权限或更换密钥",
+        createKey: "创建 API 密钥",
+        failed: "连接失败，请重试",
+    },
     meta: {
         title: "无限画布",
         description: "一个无限画布创作工具",
